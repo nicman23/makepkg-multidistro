@@ -132,6 +132,7 @@ int _alpm_str_cmp(const void *s1, const void *s2);
 char *_alpm_filecache_find(alpm_handle_t *handle, const char *filename);
 const char *_alpm_filecache_setup(alpm_handle_t *handle);
 int _alpm_test_checksum(const char *filepath, const char *expected, alpm_pkgvalidation_t type);
+int _alpm_base64_decode(const char *in, unsigned char *out, size_t *out_len);
 int _alpm_archive_fgets(struct archive *a, struct archive_read_buffer *b);
 int _alpm_splitname(const char *target, char **name, char **version,
 		unsigned long *name_hash);

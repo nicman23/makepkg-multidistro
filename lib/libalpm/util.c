@@ -40,6 +40,7 @@
 #ifdef HAVE_LIBSSL
 #include <openssl/md5.h>
 #include <openssl/sha.h>
+#include <openssl/pem.h>
 #endif
 
 /* libalpm */
@@ -936,6 +937,29 @@ static int sha256_file(const char *path, unsigned char output[32])
 	SHA256_Final(output, &ctx);
 	return 0;
 }
+
+static int base64_decode(const char* in, unsigned char *out, size_t *out_len)
+{
+	BIO *buff, *b64f;
+	size_t in_len = strlen(in);
+
+	/* reasonable allocation of expected length is 3/4 of encoded length */
+	MALLOC(out, in_len * 3 / 4 + 1, return -1);
+
+	b64f = BIO_new(BIO_f_base64());
+	buff = BIO_new_mem_buf((void *)in, in_len);
+	buff = BIO_push(b64f, buff);
+
+	BIO_set_flags(buff, BIO_FLAGS_BASE64_NO_NL);
+	BIO_set_close(buff, BIO_CLOSE);
+	*out_len = BIO_read(buff, out, in_len);
+	out = realloc(out, ((*out_len) + 1) * sizeof(char));
+	out[(*out_len)] = '\0';
+
+	BIO_free_all(buff);
+
+	return 0;
+}
 #endif
 
 /** Create a string representing bytes in hexadecimal.
@@ -1029,6 +1053,17 @@ int _alpm_test_checksum(const char *filepath, const char *expected,
 
 	FREE(computed);
 	return ret;
+}
+
+int _alpm_base64_decode(const char *base64_data, unsigned char *out, size_t *out_len)
+{
+	if(base64_decode(base64_data, out, out_len)) {
+		out = NULL;
+		*out_len = 0;
+		return -1;
+	}
+
+	return 0;
 }
 
 /* Note: does NOT handle sparse files on purpose for speed. */

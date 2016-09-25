@@ -29,7 +29,6 @@
 /* libalpm */
 #include "signing.h"
 #include "package.h"
-#include "base64.h"
 #include "util.h"
 #include "log.h"
 #include "alpm.h"
@@ -46,22 +45,10 @@
 int SYMEXPORT alpm_decode_signature(const char *base64_data,
 		unsigned char **data, size_t *data_len)
 {
-	size_t len = strlen(base64_data);
-	unsigned char *usline = (unsigned char *)base64_data;
-	/* reasonable allocation of expected length is 3/4 of encoded length */
-	size_t destlen = len * 3 / 4;
-	MALLOC(*data, destlen, goto error);
-	if(base64_decode(*data, &destlen, usline, len)) {
-		free(*data);
-		goto error;
+	if(_alpm_base64_decode(base64_data, *data, data_len)) {
+		return -1;
 	}
-	*data_len = destlen;
 	return 0;
-
-error:
-	*data = NULL;
-	*data_len = 0;
-	return -1;
 }
 
 #ifdef HAVE_LIBGPGME
