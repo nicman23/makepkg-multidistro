@@ -554,6 +554,13 @@ static int sync_db_populate(alpm_db_t *db)
 		goto cleanup;
 	}
 
+	/* the .TIMESTAMP file will be first entry in the repo archive if present.
+	 * If not, the first entry will be a directory and can be skipped too */
+	if((archive_ret = archive_read_next_header(archive, &entry)) != ARCHIVE_OK) {
+		ret = -1;
+		goto readfail;
+	}
+
 	while((archive_ret = archive_read_next_header(archive, &entry)) == ARCHIVE_OK) {
 		mode_t mode = archive_entry_mode(entry);
 		if(!S_ISDIR(mode)) {
@@ -566,6 +573,8 @@ static int sync_db_populate(alpm_db_t *db)
 			}
 		}
 	}
+
+readfail:
 	if(archive_ret != ARCHIVE_EOF) {
 		_alpm_log(db->handle, ALPM_LOG_ERROR, _("could not read db '%s' (%s)\n"),
 				db->treename, archive_error_string(archive));
