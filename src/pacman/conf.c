@@ -110,6 +110,7 @@ config_t *config_new(void)
 		newconfig->localfilesiglevel = ALPM_SIG_USE_DEFAULT;
 		newconfig->remotefilesiglevel = ALPM_SIG_USE_DEFAULT;
 	}
+	newconfig->repoexpiry = -1;
 
 	newconfig->colstr.colon   = ":: ";
 	newconfig->colstr.title   = "";
@@ -677,6 +678,22 @@ static int _parse_options(const char *key, char *value,
 				return 1;
 			}
 			FREELIST(values);
+		} else if(strcmp(key, "RepoExpiry") == 0) {
+			char *end = NULL;
+			long expiry = strtol(value, &end, 10);
+			if(*end) {
+				pm_printf(ALPM_LOG_ERROR,
+					_("config file %s, line %d: '%s' value '%s' not recognized\n"),
+					file, linenum, "RepoExpiry", value);
+				return 1;
+			}
+			if(expiry > INT_MAX) {
+				pm_printf(ALPM_LOG_ERROR,
+					_("config file %s, line %d: '%s' value '%s' is too large\n"),
+					file, linenum, "RepoExpiry", value);
+				return 1;
+			}
+			config->repoexpiry = (int)expiry;
 		} else {
 			pm_printf(ALPM_LOG_WARNING,
 					_("config file %s, line %d: directive '%s' in section '%s' not recognized.\n"),
@@ -744,6 +761,11 @@ static int register_repo(config_repo_t *repo)
 			return 1;
 		}
 	}
+
+	int expiry = ( repo->expiry != -1 ? repo->expiry : config->repoexpiry);
+	pm_printf(ALPM_LOG_DEBUG, "setting expiry of %d for %s repository\n",
+			expiry, repo->name);
+	alpm_db_set_expiry(db, expiry);
 
 	return 0;
 }
@@ -908,7 +930,6 @@ static int process_usage(alpm_list_t *values, int *usage,
 	return ret;
 }
 
-
 static int _parse_repo(const char *key, char *value, const char *file,
 		int line, struct section_t *section)
 {
@@ -946,6 +967,23 @@ static int _parse_repo(const char *key, char *value, const char *file,
 			}
 			FREELIST(values);
 		}
+	} else if(strcmp(key, "RepoExpiry") == 0) {
+		CHECK_VALUE(value);
+		char *end = NULL;
+		long expiry = strtol(value, &end, 10);
+		if(*end) {
+			pm_printf(ALPM_LOG_ERROR,
+				_("config file %s, line %d: '%s' value '%s' not recognized\n"),
+				file, line, "RepoExpiry", value);
+			return 1;
+		}
+		if(expiry > INT_MAX) {
+			pm_printf(ALPM_LOG_ERROR,
+				_("config file %s, line %d: '%s' value '%s' is too large\n"),
+				file, line, "RepoExpiry", value);
+			return 1;
+		}
+		repo->expiry = (int)expiry;
 	} else {
 		pm_printf(ALPM_LOG_WARNING,
 				_("config file %s, line %d: directive '%s' in section '%s' not recognized.\n"),
@@ -1038,6 +1076,7 @@ static int _parse_directive(const char *file, int linenum, const char *name,
 			section->repo->name = strdup(name);
 			section->repo->siglevel = ALPM_SIG_USE_DEFAULT;
 			section->repo->usage = 0;
+			section->repo->expiry = -1;
 			config->repos = alpm_list_add(config->repos, section->repo);
 		}
 		return 0;

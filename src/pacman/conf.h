@@ -40,6 +40,7 @@ typedef struct __config_repo_t {
 	int usage;
 	int siglevel;
 	int siglevel_mask;
+	int expiry;
 } config_repo_t;
 
 typedef struct __config_t {
@@ -106,6 +107,8 @@ typedef struct __config_t {
 	int siglevel_mask;
 	int localfilesiglevel_mask;
 	int remotefilesiglevel_mask;
+
+	int repoexpiry;
 
 	/* conf file options */
 	/* I Love Candy! */
