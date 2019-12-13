@@ -1026,6 +1026,20 @@ int alpm_db_set_usage(alpm_db_t *db, int usage);
  */
 int alpm_db_get_usage(alpm_db_t *db, int *usage);
 
+
+/** Sets the expiry time of a database.
+ * @param db pointer to the package database to set the status for
+ * @param expiry number of days old a database can be before expiry
+ * @return 0 on success, or -1 on error
+ */
+int alpm_db_set_expiry(alpm_db_t *db, int expiry);
+
+/** Gets the expiry time of a database.
+ * @param db pointer to the package database to get the status of
+ * @return expiry time
+ */
+int alpm_db_get_expiry(alpm_db_t *db);
+
 /** @} */
 
 /** @addtogroup alpm_api_packages Package Functions

@@ -79,6 +79,8 @@ struct __alpm_db_t {
 	int siglevel;
 	/* alpm_db_usage_t */
 	int usage;
+
+	int expiry;
 };
 
 

@@ -325,6 +325,20 @@ int SYMEXPORT alpm_db_get_usage(alpm_db_t *db, int *usage)
 	return 0;
 }
 
+/** Sets the expiry time for a repo */
+int SYMEXPORT alpm_db_set_expiry(alpm_db_t *db, int expiry)
+{
+	ASSERT(db != NULL, return -1);
+	db->expiry = expiry;
+	return 0;
+}
+
+/** Gets the expiry time for a repo */
+int SYMEXPORT alpm_db_get_expiry(alpm_db_t *db)
+{
+	ASSERT(db != NULL, return -1);
+	return db->expiry;
+}
 
 /** @} */
 
