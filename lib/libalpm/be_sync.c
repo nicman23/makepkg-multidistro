@@ -215,7 +215,7 @@ int SYMEXPORT alpm_db_update(int force, alpm_db_t *db)
 		RET_ERR(handle, ALPM_ERR_HANDLE_LOCK, -1);
 	}
 
-	dbext = db->handle->dbext;
+	dbext = handle->dbext;
 
 	for(i = db->servers; i; i = i->next) {
 		const char *server = i->data, *final_db_url = NULL;
@@ -230,9 +230,9 @@ int SYMEXPORT alpm_db_update(int force, alpm_db_t *db)
 		len = strlen(server) + strlen(db->treename) + strlen(dbext) + 2;
 		MALLOC(payload.fileurl, len,
 			{
-				free(syncpath);
-				umask(oldmask);
-				RET_ERR(handle, ALPM_ERR_MEMORY, -1);
+				handle->pm_errno = ALPM_ERR_MEMORY;
+				ret = -1;
+				goto cleanup;
 			}
 		);
 		snprintf(payload.fileurl, len, "%s/%s%s", server, db->treename, dbext);
@@ -248,8 +248,9 @@ int SYMEXPORT alpm_db_update(int force, alpm_db_t *db)
 			/* an existing sig file is no good at this point */
 			char *sigpath = _alpm_sigpath(handle, _alpm_db_path(db));
 			if(!sigpath) {
+				/* pm_errno is set by _alpm_sigpath */
 				ret = -1;
-				break;
+				goto cleanup;
 			}
 			unlink(sigpath);
 			free(sigpath);
@@ -275,9 +276,9 @@ int SYMEXPORT alpm_db_update(int force, alpm_db_t *db)
 
 			MALLOC(payload.fileurl, len,
 				{
-					free(syncpath);
-					umask(oldmask);
-					RET_ERR(handle, ALPM_ERR_MEMORY, -1);
+					handle->pm_errno = ALPM_ERR_MEMORY;
+					ret = -1;
+					goto cleanup;
 				}
 			);
 
@@ -305,6 +306,7 @@ int SYMEXPORT alpm_db_update(int force, alpm_db_t *db)
 		}
 	}
 
+cleanup:
 	if(updated) {
 		/* Cache needs to be rebuilt */
 		_alpm_db_free_pkgcache(db);
