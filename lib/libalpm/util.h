@@ -113,6 +113,7 @@ int _alpm_makepath(const char *path);
 int _alpm_makepath_mode(const char *path, mode_t mode);
 int _alpm_mkdtemp(alpm_handle_t *handle, char **tmpdir);
 int _alpm_copyfile(const char *src, const char *dest);
+int _alpm_copyfile_with_time(const char *src, const char *dest);
 size_t _alpm_strip_newline(char *str, size_t len);
 
 int _alpm_open_archive(alpm_handle_t *handle, const char *path,

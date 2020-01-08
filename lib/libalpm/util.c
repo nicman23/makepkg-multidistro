@@ -33,6 +33,7 @@
 #include <sys/socket.h>
 #include <fnmatch.h>
 #include <poll.h>
+#include <utime.h>
 
 /* libarchive */
 #include <archive.h>
@@ -226,6 +227,35 @@ cleanup:
 		close(out);
 	}
 	return ret;
+}
+
+
+/** Copies a file while preserving associated times.
+ * @param src file path to copy from
+ * @param dest file path to copy to
+ * @return 0 on success, 1 on error
+ */
+int _alpm_copyfile_with_time(const char *src, const char *dest)
+{
+	struct stat st;
+	struct utimbuf times;
+
+	if(_alpm_copyfile(src, dest) != 0) {
+		return 1;
+	};
+
+	if(stat(src, &st) != 0) {
+		return 1;
+	}
+
+	times.modtime = st.st_mtime;
+	times.actime = st.st_atime;
+
+	if(utime(dest, &times) != 0) {
+		return 1;
+	}
+
+	return 0;
 }
 
 /** Trim trailing newlines from a string (if any exist).
