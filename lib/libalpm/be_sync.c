@@ -173,8 +173,9 @@ valid:
  */
 int SYMEXPORT alpm_db_update(int force, alpm_db_t *db)
 {
-	char *syncpath;
-	const char *dbext;
+	char *syncpath, *sigpath = NULL;
+	char *tmpdir = NULL, *tmppath = NULL, *tmpsig = NULL;
+	const char *dbpath, *dbext;
 	alpm_list_t *i;
 	int updated = 0;
 	int ret = -1;
@@ -193,8 +194,19 @@ int SYMEXPORT alpm_db_update(int force, alpm_db_t *db)
 		return 0;
 	}
 
+	/* attempt to grab a lock */
+	if(_alpm_handle_lock(handle)) {
+		RET_ERR(handle, ALPM_ERR_HANDLE_LOCK, -1);
+	}
+
 	syncpath = get_sync_dir(handle);
 	if(!syncpath) {
+		return -1;
+	}
+
+	/* create temporary directory to download databases into */
+	if(_alpm_mkdtemp(handle, &tmpdir) == 0) {
+		free(syncpath);
 		return -1;
 	}
 
@@ -207,15 +219,41 @@ int SYMEXPORT alpm_db_update(int force, alpm_db_t *db)
 	oldmask = umask(0022);
 
 	siglevel = alpm_db_get_siglevel(db);
+	dbext = handle->dbext;
 
-	/* attempt to grab a lock */
-	if(_alpm_handle_lock(handle)) {
-		free(syncpath);
-		umask(oldmask);
-		RET_ERR(handle, ALPM_ERR_HANDLE_LOCK, -1);
+	dbpath = _alpm_db_path(db);
+	if(dbpath == NULL) {
+		/* pm_errno set in _alpm_db_path() */
+		ret = -1;
+		goto cleanup;
 	}
 
-	dbext = handle->dbext;
+	if((sigpath = _alpm_sigpath(handle, _alpm_db_path(db))) == NULL) {
+		/* pm_errno is set by _alpm_sigpath */
+		ret = -1;
+		goto cleanup;
+	}
+
+	if(asprintf(&tmppath, "%s%s%s", tmpdir, db->treename, dbext) == -1) {
+		handle->pm_errno = ALPM_ERR_MEMORY;
+		ret = -1;
+		goto cleanup;
+	}
+
+	if(asprintf(&tmpsig, "%s%s%s.sig", tmpdir, db->treename, dbext) == -1) {
+		handle->pm_errno = ALPM_ERR_MEMORY;
+		ret = -1;
+		goto cleanup;
+	}
+
+	/* copy current db into tempdir to allow up-to-date db handling  */
+	if(force == 0) {
+		if(_alpm_copyfile_with_time(dbpath, tmppath) != 0) {
+			handle->pm_errno = ALPM_ERR_SYSTEM;
+			ret = -1;
+			goto cleanup;
+		};
+	}
 
 	for(i = db->servers; i; i = i->next) {
 		const char *server = i->data, *final_db_url = NULL;
@@ -240,22 +278,11 @@ int SYMEXPORT alpm_db_update(int force, alpm_db_t *db)
 		payload.force = force;
 		payload.unlink_on_fail = 1;
 
-		ret = _alpm_download(&payload, syncpath, NULL, &final_db_url);
+		ret = _alpm_download(&payload, tmpdir, NULL, &final_db_url);
 		_alpm_dload_payload_reset(&payload);
 		updated = (updated || ret == 0);
 
 		if(ret != -1 && updated && (siglevel & ALPM_SIG_DATABASE)) {
-			/* an existing sig file is no good at this point */
-			char *sigpath = _alpm_sigpath(handle, _alpm_db_path(db));
-			if(!sigpath) {
-				/* pm_errno is set by _alpm_sigpath */
-				ret = -1;
-				goto cleanup;
-			}
-			unlink(sigpath);
-			free(sigpath);
-
-
 			/* check if the final URL from internal downloader looks reasonable */
 			if(final_db_url != NULL) {
 				if(strlen(final_db_url) < 3
@@ -295,7 +322,7 @@ int SYMEXPORT alpm_db_update(int force, alpm_db_t *db)
 			/* set hard upper limit of 16KiB */
 			payload.max_size = 16 * 1024;
 
-			sig_ret = _alpm_download(&payload, syncpath, NULL, NULL);
+			sig_ret = _alpm_download(&payload, tmpdir, NULL, NULL);
 			/* errors_ok suppresses error messages, but not the return code */
 			sig_ret = payload.errors_ok ? 0 : sig_ret;
 			_alpm_dload_payload_reset(&payload);
@@ -304,6 +331,15 @@ int SYMEXPORT alpm_db_update(int force, alpm_db_t *db)
 		if(ret != -1 && sig_ret != -1) {
 			break;
 		}
+	}
+
+	/* copy the downloaded database into the sync directory */
+	unlink(dbpath);
+	_alpm_copyfile_with_time(tmppath, dbpath);
+
+	unlink(sigpath);
+	if(_alpm_access(handle, NULL, sigpath, R_OK) == 0) {
+		_alpm_copyfile_with_time(tmpsig, sigpath);
 	}
 
 cleanup:
@@ -332,8 +368,20 @@ cleanup:
 		handle->pm_errno = ALPM_ERR_OK;
 	}
 
+	/* clean-up temporary directory */
+	unlink(tmppath);
+	unlink(tmpsig);
+	if(rmdir(tmpdir)) {
+		_alpm_log(handle, ALPM_LOG_WARNING,
+				_("could not remove tmpdir %s\n"), tmpdir);
+	}
+	free(tmpdir);
+	free(tmppath);
+	free(tmpsig);
+
 	_alpm_handle_unlock(handle);
 	free(syncpath);
+	free(sigpath);
 	umask(oldmask);
 	return ret;
 }
