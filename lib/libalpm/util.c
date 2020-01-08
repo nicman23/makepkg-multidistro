@@ -154,9 +154,10 @@ int _alpm_mkdtemp(alpm_handle_t *handle, char **tmpdir)
 
 	ASSERT(tmpdir != NULL, RET_ERR(handle, ALPM_ERR_WRONG_ARGS, 0));
 
-	len = strlen(handle->root) + strlen("tmp/alpm_XXXXXX") + 1;
+	len = strlen(handle->root) + strlen("tmp/alpm_XXXXXX/") + 1;
 	MALLOC(*tmpdir, len, RET_ERR(handle, ALPM_ERR_MEMORY, 0));
 	snprintf(*tmpdir, len, "%stmp/", handle->root);
+
 	if(access(*tmpdir, F_OK) != 0) {
 		_alpm_makepath_mode(*tmpdir, 01777);
 	}
@@ -166,6 +167,9 @@ int _alpm_mkdtemp(alpm_handle_t *handle, char **tmpdir)
 		free(tmpdir);
 		return 0;
 	}
+
+	(*tmpdir)[len - 2] = '/';
+	(*tmpdir)[len - 1] = '\0';
 
 	return len;
 }

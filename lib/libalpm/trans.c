@@ -358,9 +358,9 @@ int _alpm_runscriptlet(alpm_handle_t *handle, const char *filepath,
 	}
 
 	/* either extract or copy the scriptlet */
-	len += strlen("/.INSTALL");
+	len += strlen(".INSTALL");
 	MALLOC(scriptfn, len, free(tmpdir); RET_ERR(handle, ALPM_ERR_MEMORY, -1));
-	snprintf(scriptfn, len, "%s/.INSTALL", tmpdir);
+	snprintf(scriptfn, len, "%s.INSTALL", tmpdir);
 	if(is_archive) {
 		if(_alpm_unpack_single(handle, filepath, tmpdir, ".INSTALL")) {
 			retval = 1;
