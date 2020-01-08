@@ -142,6 +142,34 @@ done:
 	return ret;
 }
 
+
+/** Creates a temporary directory of form /$root/tmp/alpm_XXXXXX.
+ * @param handle the context handle
+ * @param tmpdir pointer to storage of created directory path
+ * @return path length on success, 0 on error
+ */
+int _alpm_mkdtemp(alpm_handle_t *handle, char **tmpdir)
+{
+	size_t len;
+
+	ASSERT(tmpdir != NULL, RET_ERR(handle, ALPM_ERR_WRONG_ARGS, 0));
+
+	len = strlen(handle->root) + strlen("tmp/alpm_XXXXXX") + 1;
+	MALLOC(*tmpdir, len, RET_ERR(handle, ALPM_ERR_MEMORY, 0));
+	snprintf(*tmpdir, len, "%stmp/", handle->root);
+	if(access(*tmpdir, F_OK) != 0) {
+		_alpm_makepath_mode(*tmpdir, 01777);
+	}
+	snprintf(*tmpdir, len, "%stmp/alpm_XXXXXX", handle->root);
+	if(mkdtemp(*tmpdir) == NULL) {
+		_alpm_log(handle, ALPM_LOG_ERROR, _("could not create temp directory\n"));
+		free(tmpdir);
+		return 0;
+	}
+
+	return len;
+}
+
 /** Copies a file.
  * @param src file path to copy from
  * @param dest file path to copy to
