@@ -80,6 +80,7 @@ LIBMAKEPKG_IN = \
 	libmakepkg/lint_package/file_names.sh \
 	libmakepkg/lint_package/missing_backup.sh \
 	libmakepkg/lint_pkgbuild.sh \
+	libmakepkg/lint_pkgbuild/alternative.sh \
 	libmakepkg/lint_pkgbuild/arch.sh \
 	libmakepkg/lint_pkgbuild/arch_specific.sh \
 	libmakepkg/lint_pkgbuild/backup.sh \
