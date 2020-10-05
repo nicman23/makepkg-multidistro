@@ -27,8 +27,8 @@ LIBRARY=${LIBRARY:-'@libmakepkgdir@'}
 
 source "$LIBRARY/util/option.sh"
 
-build_options+=('ccache' 'distcc')
-buildenv_functions+=('buildenv_ccache' 'buildenv_distcc')
+build_options+=('ccache' 'distcc' 'crosscompile')
+buildenv_functions+=('buildenv_ccache' 'buildenv_distcc' 'buildenv_crosscompile')
 
 using_ccache=0
 
@@ -52,4 +52,18 @@ buildenv_distcc() {
 
 		export DISTCC_HOSTS
 	fi
+}
+
+buildenv_crosscompile() {
+    PATH="${CROSSCOMPILER_PATH}:$PATH"
+    if check_buildoption "crosscompile" "y"; then
+    if (( using_ccache )); then
+      export CCACHE_PREFIX="${CCACHE_PREFIX:+$CCACHE_PREFIX }distcc"
+      export CCACHE_BASEDIR="$srcdir"
+    elif [[ -d /usr/lib/distcc/bin ]]; then
+      export PATH="/usr/lib/distcc/bin:$PATH"
+    fi
+
+    export DISTCC_HOSTS
+  fi
 }
