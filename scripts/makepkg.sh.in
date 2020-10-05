@@ -265,6 +265,86 @@ check_deps() {
 }
 
 handle_deps() {
+  handle_deps_$(echo $distro | cut -f1 -d -) "$@"
+}
+
+handle_deps_debian() {
+  local R_DEPS_SATISFIED=0
+	local R_DEPS_MISSING=1
+
+	(( $# == 0 )) && return $R_DEPS_SATISFIED
+
+	local deplist=("$@")
+
+	if (( ! DEP_BIN )); then
+		return $R_DEPS_MISSING
+	fi
+
+	if (( DEP_BIN )); then
+		# install missing deps from binary packages (using pacman -S)
+		msg "$(gettext "Installing missing dependencies...")"
+
+		if ! apt install -y "${deplist[@]}"; then
+			error "$(gettext "'%s' failed to install missing dependencies.")" "$PACMAN"
+			return $R_DEPS_MISSING
+		fi
+	fi
+
+	# we might need the new system environment
+	# save our shell options and turn off extglob
+	local shellopts=$(shopt -p extglob)
+	shopt -u extglob
+	source /etc/profile &>/dev/null
+	eval "$shellopts"
+
+	# umask might have been changed in /etc/profile
+	# ensure that sane default is set again
+	umask 0022
+
+	return $R_DEPS_SATISFIED
+}
+
+handle_deps_ubuntu() {
+  handle_deps_debian "$@"
+}
+
+handle_deps_debian() {
+  local R_DEPS_SATISFIED=0
+	local R_DEPS_MISSING=1
+
+	(( $# == 0 )) && return $R_DEPS_SATISFIED
+
+	local deplist=("$@")
+
+	if (( ! DEP_BIN )); then
+		return $R_DEPS_MISSING
+	fi
+
+	if (( DEP_BIN )); then
+		# install missing deps from binary packages (using pacman -S)
+		msg "$(gettext "Installing missing dependencies...")"
+
+		if ! dnf -y install "${deplist[@]}"; then
+			error "$(gettext "'%s' failed to install missing dependencies.")" "$PACMAN"
+			return $R_DEPS_MISSING
+		fi
+	fi
+
+	# we might need the new system environment
+	# save our shell options and turn off extglob
+	local shellopts=$(shopt -p extglob)
+	shopt -u extglob
+	source /etc/profile &>/dev/null
+	eval "$shellopts"
+
+	# umask might have been changed in /etc/profile
+	# ensure that sane default is set again
+	umask 0022
+
+	return $R_DEPS_SATISFIED
+}
+
+handle_deps_arch() {
 	local R_DEPS_SATISFIED=0
 	local R_DEPS_MISSING=1
 
@@ -669,7 +749,19 @@ list_package_files() {
 	)
 }
 
+find_distro() {
+  local codename distro
+  codename=$(lsb_release -a | grep Codename | cut -f2)
+  distro=$(lsb_release -a | grep Distributor | cut -f2)
+  [ $codename === 'n/a' ] && return $( $distro | tr '[A-Z]' '[a-z]')
+  return $(echo ${distro}-${codename} | tr '[A-Z]' '[a-z]')
+}
+
 create_package() {
+  create_package_$(echo $distro | cut -f1 -d -)
+}
+
+create_package_arch() {
 	(( NOARCHIVE )) && return 0
 
 	if [[ ! -d $pkgdir ]]; then
@@ -1014,6 +1106,9 @@ There is NO WARRANTY, to the extent permitted by law.\n")"
 }
 
 # PROGRAM START
+distro=$(find_distro)
+sed "s/:${distro}//g" < PKGBUILD.in > PKGBUILD
+export distro
 
 # ensure we have a sane umask set
 umask 0022
@@ -1471,4 +1566,4 @@ fi
 
 msg "$(gettext "Finished making: %s")" "$pkgbase $basever ($(date +%c))"
 
-install_package && exit $E_OK || exit $E_INSTALL_FAILED
+exit $E_OK

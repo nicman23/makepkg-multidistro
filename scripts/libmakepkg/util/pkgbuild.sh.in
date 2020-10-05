@@ -206,6 +206,12 @@ print_all_package_names() {
 	fi
 }
 
+get_pkg_distros() {
+	local distro_override
+	get_pkgbuild_attribute "$1" distro 1 distro_override
+	(( ${#distro_override[@]} == 0 )) && distro_override=("${arch[@]}")
+}
+
 get_all_sources() {
 	local aggregate l a
 
