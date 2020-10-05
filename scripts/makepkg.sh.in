@@ -172,11 +172,11 @@ clean_up() {
 		fi
 	fi
 
-	if ! remove_deps && (( EXIT_CODE == E_OK )); then
-	    exit $E_REMOVE_DEPS_FAILED
-	else
+#	if ! remove_deps && (( EXIT_CODE == E_OK )); then
+#	    exit $E_REMOVE_DEPS_FAILED
+#	else
 	    exit $EXIT_CODE
-	fi
+#	fi
 }
 
 enter_fakeroot() {
@@ -281,10 +281,44 @@ handle_deps_debian() {
 	fi
 
 	if (( DEP_BIN )); then
-		# install missing deps from binary packages (using pacman -S)
 		msg "$(gettext "Installing missing dependencies...")"
 
 		if ! apt install -y "${deplist[@]}"; then
+			error "$(gettext "'%s' failed to install missing dependencies.")" "$PACMAN"
+			return $R_DEPS_MISSING
+		fi
+	fi
+
+	# we might need the new system environment
+	# save our shell options and turn off extglob
+	local shellopts=$(shopt -p extglob)
+	shopt -u extglob
+	source /etc/profile &>/dev/null
+	eval "$shellopts"
+
+	# umask might have been changed in /etc/profile
+	# ensure that sane default is set again
+	umask 0022
+
+	return $R_DEPS_SATISFIED
+}
+
+handle_deps_debian() {
+  local R_DEPS_SATISFIED=0
+	local R_DEPS_MISSING=1
+
+	(( $# == 0 )) && return $R_DEPS_SATISFIED
+
+	local deplist=("$@")
+
+	if (( ! DEP_BIN )); then
+		return $R_DEPS_MISSING
+	fi
+
+	if (( DEP_BIN )); then
+		msg "$(gettext "Installing missing dependencies...")"
+
+		if ! apt-get install -y  "${deplist[@]}"; then
 			error "$(gettext "'%s' failed to install missing dependencies.")" "$PACMAN"
 			return $R_DEPS_MISSING
 		fi
@@ -308,7 +342,7 @@ handle_deps_ubuntu() {
   handle_deps_debian "$@"
 }
 
-handle_deps_debian() {
+handle_deps_fedora() {
   local R_DEPS_SATISFIED=0
 	local R_DEPS_MISSING=1
 
@@ -321,7 +355,6 @@ handle_deps_debian() {
 	fi
 
 	if (( DEP_BIN )); then
-		# install missing deps from binary packages (using pacman -S)
 		msg "$(gettext "Installing missing dependencies...")"
 
 		if ! dnf -y install "${deplist[@]}"; then
@@ -344,6 +377,10 @@ handle_deps_debian() {
 	return $R_DEPS_SATISFIED
 }
 
+handle_deps_centos() {
+  handle_deps_fedora "$@"
+}
+
 handle_deps_arch() {
 	local R_DEPS_SATISFIED=0
 	local R_DEPS_MISSING=1
@@ -357,10 +394,9 @@ handle_deps_arch() {
 	fi
 
 	if (( DEP_BIN )); then
-		# install missing deps from binary packages (using pacman -S)
 		msg "$(gettext "Installing missing dependencies...")"
 
-		if ! run_pacman -S --asdeps "${deplist[@]}"; then
+		if ! run_pacman -S --needed --asdeps "${deplist[@]}"; then
 			error "$(gettext "'%s' failed to install missing dependencies.")" "$PACMAN"
 			return $R_DEPS_MISSING
 		fi
@@ -380,7 +416,12 @@ handle_deps_arch() {
 	return $R_DEPS_SATISFIED
 }
 
+# easier to just make the package manager install everything
 resolve_deps() {
+  return 1
+}
+
+1resolve_deps() {
 	local R_DEPS_SATISFIED=0
 	local R_DEPS_MISSING=1
 
@@ -922,6 +963,8 @@ create_srcpackage() {
 }
 
 install_package() {
+echo install not supported
+exit 1
 	(( ! INSTALL )) && return 0
 
 	remove_deps || return $?
