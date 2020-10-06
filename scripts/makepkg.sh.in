@@ -269,7 +269,7 @@ handle_deps() {
 }
 
 handle_deps_debian() {
-  local R_DEPS_SATISFIED=0
+	local R_DEPS_SATISFIED=0
 	local R_DEPS_MISSING=1
 
 	(( $# == 0 )) && return $R_DEPS_SATISFIED
@@ -304,7 +304,7 @@ handle_deps_debian() {
 }
 
 handle_deps_debian() {
-  local R_DEPS_SATISFIED=0
+	local R_DEPS_SATISFIED=0
 	local R_DEPS_MISSING=1
 
 	(( $# == 0 )) && return $R_DEPS_SATISFIED
@@ -343,7 +343,7 @@ handle_deps_ubuntu() {
 }
 
 handle_deps_fedora() {
-  local R_DEPS_SATISFIED=0
+	local R_DEPS_SATISFIED=0
 	local R_DEPS_MISSING=1
 
 	(( $# == 0 )) && return $R_DEPS_SATISFIED
@@ -379,6 +379,41 @@ handle_deps_fedora() {
 
 handle_deps_centos() {
   handle_deps_fedora "$@"
+}
+
+handle_deps_opensuse() {
+	local R_DEPS_SATISFIED=0
+	local R_DEPS_MISSING=1
+
+	(( $# == 0 )) && return $R_DEPS_SATISFIED
+
+	local deplist=("$@")
+
+	if (( ! DEP_BIN )); then
+		return $R_DEPS_MISSING
+	fi
+
+	if (( DEP_BIN )); then
+		msg "$(gettext "Installing missing dependencies...")"
+
+		if ! zypper -n in "${deplist[@]}"; then
+			error "$(gettext "'%s' failed to install missing dependencies.")" "$PACMAN"
+			return $R_DEPS_MISSING
+		fi
+	fi
+
+	# we might need the new system environment
+	# save our shell options and turn off extglob
+	local shellopts=$(shopt -p extglob)
+	shopt -u extglob
+	source /etc/profile &>/dev/null
+	eval "$shellopts"
+
+	# umask might have been changed in /etc/profile
+	# ensure that sane default is set again
+	umask 0022
+
+	return $R_DEPS_SATISFIED
 }
 
 handle_deps_arch() {
