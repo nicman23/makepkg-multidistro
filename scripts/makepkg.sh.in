@@ -269,7 +269,7 @@ handle_deps() {
 }
 
 handle_deps_debian() {
-  local R_DEPS_SATISFIED=0
+	local R_DEPS_SATISFIED=0
 	local R_DEPS_MISSING=1
 
 	(( $# == 0 )) && return $R_DEPS_SATISFIED
@@ -304,7 +304,7 @@ handle_deps_debian() {
 }
 
 handle_deps_debian() {
-  local R_DEPS_SATISFIED=0
+	local R_DEPS_SATISFIED=0
 	local R_DEPS_MISSING=1
 
 	(( $# == 0 )) && return $R_DEPS_SATISFIED
@@ -343,7 +343,7 @@ handle_deps_ubuntu() {
 }
 
 handle_deps_fedora() {
-  local R_DEPS_SATISFIED=0
+	local R_DEPS_SATISFIED=0
 	local R_DEPS_MISSING=1
 
 	(( $# == 0 )) && return $R_DEPS_SATISFIED
@@ -379,6 +379,41 @@ handle_deps_fedora() {
 
 handle_deps_centos() {
   handle_deps_fedora "$@"
+}
+
+handle_deps_opensuse() {
+	local R_DEPS_SATISFIED=0
+	local R_DEPS_MISSING=1
+
+	(( $# == 0 )) && return $R_DEPS_SATISFIED
+
+	local deplist=("$@")
+
+	if (( ! DEP_BIN )); then
+		return $R_DEPS_MISSING
+	fi
+
+	if (( DEP_BIN )); then
+		msg "$(gettext "Installing missing dependencies...")"
+
+		if ! zypper -n in "${deplist[@]}"; then
+			error "$(gettext "'%s' failed to install missing dependencies.")" "$PACMAN"
+			return $R_DEPS_MISSING
+		fi
+	fi
+
+	# we might need the new system environment
+	# save our shell options and turn off extglob
+	local shellopts=$(shopt -p extglob)
+	shopt -u extglob
+	source /etc/profile &>/dev/null
+	eval "$shellopts"
+
+	# umask might have been changed in /etc/profile
+	# ensure that sane default is set again
+	umask 0022
+
+	return $R_DEPS_SATISFIED
 }
 
 handle_deps_arch() {
@@ -754,12 +789,12 @@ write_deb_control() {
 	echo "Package: $pkgname"
 	echo "Essential: no"
 	echo "Priority: required"
-#  echo "Maintainer: $(head)"
+	#  echo "Maintainer: $(head)"
 
 	local fullver=$(get_full_version)
 	echo "Version: $fullver"
 
-# TODO: all fields should have this treatment
+	# TODO: all fields should have this treatment
 	local spd="${pkgdesc//+([[:space:]])/ }"
 	spd=("${spd[@]#[[:space:]]}")
 	spd=("${spd[@]%[[:space:]]}")
@@ -784,6 +819,40 @@ write_deb_control() {
 	echo "Suggests: ${optdepends[@]//+([[:space:]])/ }"
 	echo "Built-Using: ${makedepends[@]}"
 #	echo "checkdepend: ${checkdepends[@]}"
+}
+
+write_spec() {
+	local size=$(dirsize)
+
+	merge_arch_attrs
+
+	echo "Name: $pkgname"
+
+	local fullver=$(get_full_version)
+	echo "Version: $fullver"
+	# echo "Release: $fullrel"
+
+	# TODO: all fields should have this treatment
+	local spd="${pkgdesc//+([[:space:]])/ }"
+	spd=("${spd[@]#[[:space:]]}")
+	spd=("${spd[@]%[[:space:]]}")
+
+	echo "Summary: $spd"
+	echo "URL: $url"
+	echo "Maintainer: $PACKAGER"
+	echo "BuildArch: $pkgarch"
+
+	mapfile -t provides < <(find_libprovides)
+	mapfile -t depends < <(find_libdepends)
+
+	echo "License: ${license[@]}"
+	echo "Obsoletes: ${replaces[@]}"
+	echo "Group: ${groups[@]}"
+	echo "Conflicts: ${conflicts[@]}"
+	echo "Provides: ${provides[@]}"
+	echo "Requires: ${depends[@]}"
+	echo "Requires: ${optdepends[@]//+([[:space:]])/ }"
+	echo "BuildRequires: ${makedepends[@]}"
 }
 
 write_buildinfo() {
@@ -843,7 +912,6 @@ create_package() {
 }
 
 create_package_debian() {
-{
 	(( NOARCHIVE )) && return 0
 
 	if [[ ! -d $pkgdir ]]; then
@@ -857,7 +925,7 @@ create_package_debian() {
 
 	pkgarch=$(get_pkg_arch)
 	msg2 "$(gettext "Generating %s file...")" "debian/control"
-  mkdir -p DEBIAN
+	mkdir -p DEBIAN
 	write_deb_control > DEBIAN/control
 #	msg2 "$(gettext "Generating %s file...")" ".BUILDINFO"
 #	write_buildinfo > .BUILDINFO
@@ -885,8 +953,7 @@ create_package_debian() {
 #	[[ -f $pkg_file.sig ]] && rm -f "$pkg_file.sig"
 
 	# ensure all elements of the package have the same mtime
-	find . -exec touch -h -d @$SOURCE_DATE_EPOCH {} +
-  dpkg-deb -b . "${pkg_file}"
+	find . -exec touch -h -d @$SOURCE_DATE_EPOCH {} + dpkg-deb -b . "${pkg_file}"
 # msg2 "$(gettext "Generating .MTREE file...")"
 #	list_package_files | LANG=C bsdtar -cnf - --format=mtree \
 #		--options='!all,use-set,type,uid,gid,mode,time,size,md5,sha256,link' \
@@ -901,6 +968,37 @@ create_package_debian() {
 #
 #	shopt -u -o pipefail
 
+	if (( ret )); then
+		error "$(gettext "Failed to create package file.")"
+		exit $E_PACKAGE_FAILED
+	fi
+}
+
+create_package_fedora() {
+	(( NOARCHIVE )) && return 0
+
+	if [[ ! -d $pkgdir ]]; then
+		error "$(gettext "Missing %s directory.")" "\$pkgdir/"
+		plainerr "$(gettext "Aborting...")"
+		exit $E_MISSING_PKGDIR
+	fi
+
+	cd_safe "$pkgdir"
+	msg "$(gettext "Creating package \"%s\"...")" "$pkgname"
+
+	pkgarch=$(get_pkg_arch)
+	local pkg_file=""$pkgname".spec"
+
+	msg2 "$(gettext "Generating %s file...")" "$pkg_file"
+	write_spec > "$pkg_file"
+
+	# tar it up
+	local ret=0
+	[[ -f $pkg_file ]] && rm -f "$pkg_file"
+
+	# ensure all elements of the package have the same mtime
+	find . -exec touch -h -d @$SOURCE_DATE_EPOCH {} + rpmbuild -ba "$pkg_file"
+	
 	if (( ret )); then
 		error "$(gettext "Failed to create package file.")"
 		exit $E_PACKAGE_FAILED
