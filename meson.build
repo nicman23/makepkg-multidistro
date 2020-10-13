@@ -277,7 +277,6 @@ substs.set('STRIP_STATIC', strip_static)
 
 subdir('lib/libalpm')
 subdir('src/common')
-subdir('src/pacman')
 subdir('src/util')
 subdir('scripts')
 
@@ -285,17 +284,9 @@ subdir('scripts')
 if get_option('i18n')
   i18n = import('i18n')
   subdir('lib/libalpm/po')
-  subdir('src/pacman/po')
   subdir('scripts/po')
 endif
 
-want_doc = get_option('doc')
-ASCIIDOC = find_program('asciidoc', required : want_doc)
-A2X = find_program('a2x', required : want_doc)
-build_doc = A2X.found() and not want_doc.disabled()
-if build_doc
-  subdir('doc')
-endif
 
 includes = include_directories('src/common', 'lib/libalpm')
 
@@ -334,23 +325,6 @@ pkgconfig.generate(
   version : libalpm_version,
   url : 'http://www.archlinux.org/pacman/')
 
-pacman_bin = executable(
-  'pacman',
-  pacman_sources,
-  include_directories : includes,
-  link_with : [libalpm, libcommon],
-  dependencies : [libarchive],
-  install : true,
-)
-
-executable(
-  'pacman-conf',
-  pacman_conf_sources,
-  include_directories : includes,
-  link_with : [libalpm],
-  dependencies : [libarchive],
-  install : true,
-)
 
 executable(
   'testpkg',
@@ -390,12 +364,6 @@ configure_file(
   configuration : substs,
   install_dir : SYSCONFDIR)
 
-configure_file(
-  input : 'etc/pacman.conf.in',
-  output : 'pacman.conf',
-  configuration : substs,
-  install_dir : SYSCONFDIR)
-
 install_data(
   'proto/PKGBUILD-split.proto',
   'proto/PKGBUILD-vcs.proto',
@@ -418,7 +386,6 @@ TEST_ENV.set('PMTEST_LIBMAKEPKG_DIR', join_paths(meson.build_root(), 'scripts/li
 TEST_ENV.set('PMTEST_UTIL_DIR', meson.build_root() + '/')
 TEST_ENV.set('PMTEST_SCRIPT_DIR', join_paths(meson.build_root(), 'scripts/'))
 
-subdir('test/pacman')
 subdir('test/scripts')
 subdir('test/util')
 
@@ -449,7 +416,6 @@ message('\n    '.join([
   '',
   'Compilation options:',
   '  i18n support             : @0@'.format(get_option('i18n')),
-  '  Build docs               : @0@'.format(build_doc),
   '  debug build              : @0@'.format(get_option('buildtype') == 'debug'),
   '  Use libcurl              : @0@'.format(conf.get('HAVE_LIBCURL')),
   '  Use GPGME                : @0@'.format(conf.get('HAVE_LIBGPGME')),

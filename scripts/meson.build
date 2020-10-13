@@ -1,8 +1,5 @@
 wrapped_scripts = [
   'makepkg.sh.in',
-  'pacman-db-upgrade.sh.in',
-  'pacman-key.sh.in',
-  'repo-add.sh.in'
 ]
 
 scripts = [
@@ -40,24 +37,6 @@ foreach script : wrapped_scripts
 
   script_wrappers += [[ script_shortname, internal_script, meson.current_build_dir() ]]
 
-  if script_shortname == 'repo-add'
-    repo_add = internal_script
-  endif
-endforeach
-
-foreach symlink : ['repo-remove', 'repo-elephant']
-  meson.add_install_script(MESON_MAKE_SYMLINK,
-                           'repo-add',
-                           join_paths(BINDIR, symlink))
-
-  internal_script = custom_target(
-    symlink,
-    build_by_default : true,
-    command : ['ln', '-sf', 'repo-add', '@OUTPUT@'],
-    depends : repo_add,
-    output : symlink)
-
-  script_wrappers += [[ symlink, internal_script, meson.current_build_dir() ]]
 endforeach
 
 subdir('libmakepkg')
